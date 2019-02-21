@@ -1,6 +1,8 @@
 import pprint
 import subprocess
 import sys
+import tempfile
+from pathlib import Path
 
 import click
 import ruamel.yaml as yaml
@@ -110,7 +112,14 @@ def merge(releases, overlays):
         name = release['name']
         release_overlay = overlays[name]
         for k in release_overlay:
-            release[k] = release_overlay[k]
+            if k in release:
+                if isinstance(release[k], list):
+                    release[k].append(release_overlay[k])
+                elif isinstance(release[k], dict):
+                    old = release[k]
+                    release[k] = [old, release_overlay[k]]
+            else:
+                release[k] = release_overlay[k]
 
 
 def handle_repositories():
@@ -123,6 +132,15 @@ def handle_repositories():
             sh_exec("%s repo add %s %s" % (config.helm_binary, name, url))
             print("Repository added!")
         sh_exec("%s repo update" % config.helm_binary)
+
+
+def to_file(value):
+    fp = tempfile.NamedTemporaryFile(delete=False)
+    if isinstance(value, str):
+        fp.write(bytes(value, encoding='utf8'))
+    else:
+        fp.write(bytes(yaml.dump(value), encoding='utf8'))
+    return fp.name
 
 
 def helm_upgrade(release):
@@ -149,7 +167,13 @@ def helm_upgrade(release):
     cmd += " --install"
     if 'values' in release:
         for value in release['values']:
-            cmd += " --values %s" % value
+            if isinstance(value, str):
+                if not Path(value).is_file():
+                    raise Exception("File not found: %s" % value)
+                else:
+                    cmd += " --values %s" % value
+            else:
+                cmd += " --values %s" % to_file(value)
     print("Upgrading: %s (%s)" % (name, chart))
     sh_exec(cmd)
 
