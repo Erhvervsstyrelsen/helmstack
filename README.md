@@ -81,3 +81,5 @@ Support some sort of templating language... Maybe
 
 ### s/overlay/overlays/ ?
 Either stop supporting multiple overlay files or rename key to overlays
+
+### Support referencing charts by urls... git urls 
